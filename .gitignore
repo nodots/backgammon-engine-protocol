@@ -1,0 +1,10 @@
+# cell coordination artifacts (never committed into feature PRs)
+SCOPE.json
+HANDOFF.md
+BLOCKER.md
+.auto-shop/
+
+# node
+node_modules/
+dist/
+*.log

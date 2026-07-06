@@ -10,6 +10,7 @@ code. Vendors depend on this Apache-2.0 package and may implement their engine i
 any language.
 
 - Full protocol spec: [`SPEC.md`](./SPEC.md)
+- Vendor onboarding guide: [`docs/vendor-guide.md`](./docs/vendor-guide.md) — how a third-party vendor ships a sealed, closed-source engine to the Nodots platform
 - Design issue: [nodots/backgammon#360](https://github.com/nodots/backgammon/issues/360)
 
 ## Install
@@ -66,7 +67,8 @@ export class MyEngine implements AnalysisProvider {
 For out-of-process engines, serve the HTTP surface (`POST /v1/move`,
 `POST /v1/double`, `POST /v1/take`, `POST /v1/resign`, `GET /v1/health`) using
 the response types (`MoveResponse`, `DoubleResponse`, …) where `equity` and
-`candidates` are optional. See [`SPEC.md`](./SPEC.md).
+`candidates` are optional. See [`SPEC.md`](./SPEC.md) and the
+[vendor onboarding guide](./docs/vendor-guide.md).
 
 ## Coordinate convention
 

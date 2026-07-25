@@ -1,6 +1,6 @@
 {
   "name": "@nodots/backgammon-engine-protocol",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Language-neutral wire contract for Nodots backgammon engine plugins (AnalysisProvider). Apache-2.0, zero runtime dependencies.",
   "license": "Apache-2.0",
   "type": "module",
@@ -51,7 +51,7 @@
     "url": "git+https://github.com/nodots/backgammon-engine-protocol.git"
   },
   "bugs": {
-    "url": "https://github.com/nodots/backgammon/issues"
+    "url": "https://github.com/nodots/backgammon-engine-protocol/issues"
   },
   "homepage": "https://github.com/nodots/backgammon-engine-protocol#readme",
   "devDependencies": {

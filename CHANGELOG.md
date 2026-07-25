@@ -15,6 +15,20 @@ See SPEC.md §7 for the full policy.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1] — 2026-07-25
+
+### Fixed
+
+- `bugs.url` pointed at `nodots/backgammon`, a private repository, so a vendor
+  who installed the package could not file an issue — the link 404'd. Now points
+  at this repository's own tracker, which is public.
+
+### Removed
+
+- `.claude/` and `templates/SCOPE.template.json` — internal agent-workflow
+  tooling, irrelevant to anyone integrating the protocol. They remain in git
+  history; nothing in them is sensitive.
+
 ## [0.2.0] — 2026-07-25
 
 First published release. `PROTOCOL_VERSION` remains `"1"` — the wire is

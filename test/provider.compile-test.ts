@@ -10,6 +10,8 @@ import type {
   AnalysisProvider,
   DoubleHint,
   DoubleResponse,
+  ErrorCode,
+  ErrorResponse,
   Evaluation,
   Explanation,
   HealthStatus,
@@ -127,6 +129,43 @@ const doubleResponse: DoubleResponse = { action: 'double' };
 const takeResponse: TakeResponse = { action: 'drop' };
 const resignResponse: ResignResponse = { action: 'single', equity: -1 };
 
+// Error bodies: minimal, and with the optional field pointer.
+const minimalError: ErrorResponse = {
+  error: { code: 'invalid_position_id', message: 'not a decodable GNU position ID' },
+};
+const fieldError: ErrorResponse = {
+  error: { code: 'invalid_request', message: 'die out of range', field: 'dice[1]' },
+};
+
+// Pin the code union exhaustively. If a member is added or removed, this stops
+// compiling -- which is the point: ErrorCode is the one part of the surface a
+// conformance harness branches on, so it must not drift silently.
+const allCodes: ErrorCode[] = [
+  'invalid_position_id',
+  'invalid_request',
+  'unsupported',
+  'timeout',
+  'internal',
+];
+function assertExhaustive(code: ErrorCode): string {
+  switch (code) {
+    case 'invalid_position_id':
+    case 'invalid_request':
+      return '400';
+    case 'unsupported':
+      return '501';
+    case 'timeout':
+      return '504';
+    case 'internal':
+      return '500';
+    default: {
+      const never: never = code;
+      return never;
+    }
+  }
+}
+
 // Reference the values so the compiler treats them as used at type level.
 export const _sample: AnalysisProvider = new SampleEngine();
 export const _responses = { moveResponse, doubleResponse, takeResponse, resignResponse };
+export const _errors = { minimalError, fieldError, allCodes, assertExhaustive };

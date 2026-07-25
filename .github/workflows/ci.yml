@@ -1,0 +1,52 @@
+name: CI
+
+# This repo has ZERO runtime dependencies and only one devDependency, so unlike
+# the consumer repos there is no private git dep and no SSH deploy key needed.
+on:
+  push:
+    branches: [development, main]
+  pull_request:
+    branches: [development, main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint (type-checks the provider compile-test)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # The package's core promise is that it ships no runtime code beyond the
+      # frozen version constant. runtime.test.js asserts the export set, but that
+      # only runs against a build made moments earlier in the same job -- this
+      # step additionally proves the PUBLISHED tarball carries what we claim,
+      # which is what a vendor actually installs.
+      - name: Verify publishable tarball contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const p = require('./pack.json')[0];
+            const files = p.files.map(f => f.path).sort();
+            console.log('tarball contents:', files.join(', '));
+            const required = ['CHANGELOG.md','LICENSE','README.md','SPEC.md','docs/vendor-guide.md','package.json'];
+            const missing = required.filter(r => !files.includes(r));
+            if (missing.length) { console.error('MISSING from tarball:', missing); process.exit(1); }
+            if (!files.some(f => f.startsWith('dist/'))) { console.error('no dist/ in tarball'); process.exit(1); }
+          "

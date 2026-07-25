@@ -186,5 +186,48 @@ export interface ResignResponse {
 /** Response to GET /v1/health. */
 export type HealthResponse = HealthStatus;
 
+/**
+ * Why a request failed.
+ *
+ * `invalid_position_id` — positionId is not a decodable GNU position ID.
+ * `invalid_request`     — a required field is missing, malformed, or out of range
+ *                         (including dice outside 1..6).
+ * `unsupported`         — the request is well-formed but this engine does not
+ *                         answer it (e.g. an engine that declines match play, or
+ *                         does not implement resignation). Distinct from
+ *                         `internal`: it is a permanent, expected refusal, not a
+ *                         fault, so a conformance run reports it rather than failing.
+ * `timeout`             — the engine could not answer within its own budget.
+ * `internal`            — an unexpected fault on the engine side.
+ */
+export type ErrorCode =
+  | 'invalid_position_id'
+  | 'invalid_request'
+  | 'unsupported'
+  | 'timeout'
+  | 'internal';
+
+/**
+ * Error body for any non-2xx response on the /v1 surface.
+ *
+ * Every endpoint returns either its documented success body or this. Before
+ * this existed the contract said only "return non-2xx", which a vendor cannot
+ * conform to and a conformance harness cannot check — the failure path was the
+ * one part of the wire surface with no agreed shape.
+ *
+ * Suggested status mapping: `invalid_position_id` and `invalid_request` -> 400,
+ * `unsupported` -> 501, `timeout` -> 504, `internal` -> 500. Clients MUST branch
+ * on `error.code`, not on the status, since proxies rewrite statuses.
+ */
+export interface ErrorResponse {
+  error: {
+    code: ErrorCode;
+    /** Human-readable, for logs. Never parse this — parse `code`. */
+    message: string;
+    /** Optional machine-readable pointer to the offending field, e.g. "dice[1]". */
+    field?: string;
+  };
+}
+
 /** Frozen protocol version. */
 export const PROTOCOL_VERSION = '1' as const;

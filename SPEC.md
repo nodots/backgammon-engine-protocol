@@ -136,6 +136,40 @@ Response: `HealthResponse` (= `HealthStatus`).
 }
 ```
 
+### Errors (all endpoints)
+
+Every endpoint returns either its documented success body or an `ErrorResponse`.
+A conforming engine MUST NOT return a bare non-2xx with an unstructured body, and
+MUST NOT hang: a request it cannot answer is an error, not a timeout.
+
+```jsonc
+{
+  "error": {
+    "code": "invalid_position_id",
+    "message": "positionId is not a decodable GNU position ID",
+    "field": "positionId"        // optional pointer to the offending field
+  }
+}
+```
+
+`code` is one of:
+
+| code | meaning | suggested status |
+| --- | --- | --- |
+| `invalid_position_id` | `positionId` is not a decodable GNU position ID | 400 |
+| `invalid_request` | a required field is missing, malformed, or out of range (including dice outside 1..6) | 400 |
+| `unsupported` | well-formed, but this engine does not answer it — e.g. it declines match play, or does not implement resignation | 501 |
+| `timeout` | the engine could not answer within its own budget | 504 |
+| `internal` | an unexpected fault on the engine side | 500 |
+
+Clients MUST branch on `error.code`, never on the HTTP status: proxies rewrite
+statuses, and the status column above is a suggestion, not part of the contract.
+
+`unsupported` is deliberately distinct from `internal`. It is a permanent,
+expected refusal, so a conformance run reports it as a declared capability gap
+rather than failing the engine. An engine that only plays money games answers
+`unsupported` to a match-play request and remains conformant.
+
 ## 5. Optionality rule
 
 The in-process `AnalysisProvider` always returns full `Evaluation` and hint
@@ -161,3 +195,31 @@ Equity is a derived quantity, not a raw neural-net output.
 This document describes version `1`. Any incompatible change to the request
 shape, the coordinate convention, or the required response fields is a new
 protocol version.
+
+### Protocol version vs package version
+
+These are **independent**, and vendors should pin to the first, not the second.
+
+`PROTOCOL_VERSION` describes the wire. It is frozen at `"1"` and moves only for
+an incompatible wire change, at which point both versions coexist under distinct
+paths (`/v1`, `/v2`) — the protocol is never silently redefined underneath a
+running engine.
+
+The npm package version is ordinary semver over the *published artifact*:
+
+- **patch** — documentation, JSDoc, build output; no type or wire change.
+- **minor** — additive types (new optional field, new exported interface, a new
+  member of a union that consumers already handle via a default branch). An
+  integration built against an earlier minor keeps compiling and keeps passing
+  conformance.
+- **major** — a breaking change to the *TypeScript* surface: a removed or
+  narrowed type, a renamed export, a field becoming required. This can happen
+  **without** a protocol bump, because a type can tighten while the wire stays
+  identical.
+
+The reverse also holds: a new protocol version forces a major package bump.
+
+Reaching package `1.0.0` asserts that the TypeScript surface is stable enough
+to promise the above, and nothing about engine strength or feature completeness.
+While the package is `0.x`, minor bumps may break types.
+

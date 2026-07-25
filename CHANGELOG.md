@@ -15,7 +15,11 @@ See SPEC.md §7 for the full policy.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2.0] — 2026-07-25
+
+First published release. `PROTOCOL_VERSION` remains `"1"` — the wire is
+unchanged; this is a minor bump because the TypeScript surface gained types,
+per the policy in SPEC §7.
 
 ### Added
 
@@ -32,7 +36,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `CHANGELOG.md` and `docs/vendor-guide.md` added to the published `files`. The
   vendor guide was linked from the README but excluded from the tarball, so every
   npm consumer got a dead link.
-- CI (build, lint, test on Node 20).
+- `PositionIdConvention` and an optional `positionIdConvention` field on
+  `HintRequest`. Two orderings of a GNU position id exist in the wild and decode
+  the SAME id to DIFFERENT boards, so an engine assuming the wrong one returns a
+  move that is illegal for the position the caller meant — silently, with no
+  error. Found against our own reference implementation, which produced illegal
+  moves on 5 of 36 conformance vectors when fed gnubg-emitted ids. Optional and
+  defaulting to `'opponent-first'`, so callers written before it keep working.
+- **`engine-conformance` CLI** (`bin/conformance.mjs`) plus 36 legality-pinning
+  golden vectors in two convention-specific sets. Dependency-free and with no
+  move generator: legality is precomputed into the vectors, so the harness only
+  checks membership and a vendor can audit our legality claims rather than trust
+  them. It pins legality, never strength — a conforming weak engine passes.
+- SPEC §4: the take-request perspective rule (the one place a caller mistake is
+  silent rather than an `invalid_request`), and the resignation scope statement
+  (returning `none` unconditionally is conformant and carries no strength claim).
+- CI (build, lint, test on Node 20), including a step that verifies the published
+  tarball contents and a suite that proves the conformance harness FAILS against
+  five deliberately broken engines and a hang. A harness never observed to fail
+  is not evidence.
 
 ### Notes
 

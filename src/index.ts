@@ -116,9 +116,33 @@ export interface Explanation {
  * For double/take/resign decisions `dice` is not meaningful; the HTTP surface
  * omits it (see SPEC.md).
  */
+/**
+ * Which side's checkers are written first in a GNU position ID.
+ *
+ * Two orderings exist in the wild and they decode the SAME id to DIFFERENT
+ * boards, so an engine that assumes the wrong one returns moves that are illegal
+ * for the position the caller meant — silently, with no error. That is the worst
+ * failure mode in an interoperability contract, so it is expressible here rather
+ * than left to convention.
+ *
+ * `'on-roll-first'`  — GNU Backgammon's own ordering. Use this for ids emitted
+ *                      by gnubg or by tools that copy it.
+ * `'opponent-first'` — the ordering used by Nodots CORE and wildBG.
+ */
+export type PositionIdConvention = 'on-roll-first' | 'opponent-first';
+
 export interface HintRequest {
   /** GNU position ID (canonical). */
   positionId: string;
+  /**
+   * How to read `positionId`. OPTIONAL and defaults to `'opponent-first'` for
+   * backward compatibility with callers written before this field existed.
+   *
+   * Send it explicitly. Relying on the default is only safe if you know your ids
+   * are opponent-first, and a gnubg-sourced id read as opponent-first yields a
+   * different board with no error raised.
+   */
+  positionIdConvention?: PositionIdConvention;
   dice: [number, number];
   activePlayerColor: Color;
   activePlayerDirection: Direction;

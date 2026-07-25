@@ -49,6 +49,7 @@ Every decision method receives a position plus match/cube context:
 | field                   | type                  | notes                                   |
 | ----------------------- | --------------------- | --------------------------------------- |
 | `positionId`            | `string`              | GNU position ID (canonical encoding).   |
+| `positionIdConvention`  | `'on-roll-first' \| 'opponent-first'` | OPTIONAL. How to read `positionId`. Defaults to `'opponent-first'`. **Send it explicitly** — see below. |
 | `dice`                  | `[number, number]`    | The roll. Omitted for cube/take/resign. |
 | `activePlayerColor`     | `'white' \| 'black'`  | Player on roll / on decision.           |
 | `activePlayerDirection` | `'clockwise' \| 'counterclockwise'` | Direction of travel.      |
@@ -62,6 +63,29 @@ Every decision method receives a position plus match/cube context:
 
 `dice` is present for move requests and **omitted** for `double`, `take`, and
 `resign` requests, where no roll applies.
+
+### Position ID convention — read this
+
+Two orderings of a GNU position ID exist in the wild, and they decode the **same
+id to different boards**:
+
+- `'on-roll-first'` — GNU Backgammon's own ordering. Use for ids emitted by gnubg
+  or tools that copy it.
+- `'opponent-first'` — the ordering used by Nodots CORE and wildBG.
+
+An engine that assumes the wrong one does not fail loudly. It decodes a *valid but
+different* position and returns a move that is **illegal for the position the
+caller meant**, with no error. This was observed against the reference
+implementation itself: feeding it gnubg-emitted ids while it assumed
+opponent-first produced illegal moves on 5 of 36 conformance vectors.
+
+`positionIdConvention` is OPTIONAL and defaults to `'opponent-first'`, purely so
+callers written before it existed keep working. **New integrations should always
+send it.** Engines SHOULD honour it; an engine that supports only one ordering
+MUST return `unsupported` for the other rather than silently misreading.
+
+Conformance vectors record which convention they were generated under, and the
+suite ships a set for each.
 
 ## 4. HTTP surface (protocol version `1`)
 

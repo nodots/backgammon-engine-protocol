@@ -30,7 +30,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
+      - name: Test (contract + conformance harness)
+        # `npm test` now also runs the conformance suite against a mock engine
+        # AND against five deliberately broken variants. A harness that has never
+        # been observed to fail is not evidence of anything, so CI asserts both
+        # directions: a conformant engine passes, and each specific breakage is
+        # caught by the check that targets it.
         run: npm test
 
       # The package's core promise is that it ships no runtime code beyond the

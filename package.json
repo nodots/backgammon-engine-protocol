@@ -14,11 +14,13 @@
     }
   },
   "files": [
-    "dist",
-    "SPEC.md",
-    "README.md",
     "CHANGELOG.md",
     "LICENSE",
+    "README.md",
+    "SPEC.md",
+    "bin",
+    "conformance",
+    "dist",
     "docs/vendor-guide.md"
   ],
   "sideEffects": false,
@@ -34,7 +36,8 @@
     "lint": "tsc -p test/tsconfig.json",
     "test": "npm run build && node --test test/runtime.test.js",
     "prepublishOnly": "npm run build",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "conformance": "node bin/conformance.mjs"
   },
   "keywords": [
     "backgammon",
@@ -53,5 +56,8 @@
   "homepage": "https://github.com/nodots/backgammon-engine-protocol#readme",
   "devDependencies": {
     "typescript": "^5.5.4"
+  },
+  "bin": {
+    "engine-conformance": "./bin/conformance.mjs"
   }
 }

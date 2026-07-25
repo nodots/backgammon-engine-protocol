@@ -111,6 +111,14 @@ Response: `TakeResponse`.
 }
 ```
 
+**Perspective (important).** A GNU position ID encodes the board from the
+**on-roll player's** point of view; `activePlayerColor` only *names* that player
+and does not reorient anything. On a take request the player on decision is the
+**taker**, so `positionId` MUST be encoded from the taker's side. Sending the
+doubler's view returns a confidently inverted answer with no error — this is the
+one place in the protocol where a caller mistake is silent rather than an
+`invalid_request`.
+
 ### `POST /v1/resign`
 
 Request: `HintRequest` **without `dice`**.
@@ -122,6 +130,16 @@ Response: `ResignResponse`.
   "equity": -1.0             // OPTIONAL
 }
 ```
+
+An engine that does not model resignation SHOULD return `"none"` unconditionally
+rather than `unsupported`: `none` is a valid, playable answer meaning "do not
+volunteer a resignation", so a caller needs no special case. Reserve
+`unsupported` for requests an engine cannot answer at all.
+
+Returning `"none"` unconditionally is therefore conformant, and carries **no
+claim** that the engine evaluated the position for resignation. Consumers must
+not infer resignation strength from this endpoint. The reference implementation
+does exactly this.
 
 ### `GET /v1/health`
 

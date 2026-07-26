@@ -37,7 +37,7 @@ if (!base) {
   process.exit(2);
 }
 
-const VECTORS = flag('vectors', join(HERE, '..', 'conformance', 'vectors.json'));
+const VECTORS_FLAG = flag('vectors', null);
 const TIMEOUT = Number(flag('timeout-ms', 10000));
 const VERBOSE = has('verbose');
 
@@ -169,6 +169,66 @@ const ERROR_CODES = new Set([
   'timeout',
   'internal',
 ]);
+
+/* ------------------------------------------------------- vector selection */
+
+const SHIPPED_VECTORS = ['vectors.json', 'vectors-on-roll-first.json'].map((f) =>
+  join(HERE, '..', 'conformance', f),
+);
+
+const loadVectors = (path) => {
+  const payload = JSON.parse(readFileSync(path, 'utf8'));
+  return { path, payload, vectors: payload.vectors ?? [] };
+};
+
+/** A refusal of the request's id ordering, as SPEC §3 tells an engine to make it. */
+const rejectsConvention = (r) =>
+  isErrorBody(r.json) &&
+  r.json.error.code === 'unsupported' &&
+  (r.json.error.field === 'positionIdConvention' ||
+    r.json.error.message.includes('positionIdConvention'));
+
+/**
+ * SPEC §3: an engine may read only one id ordering and MUST refuse the other
+ * with `unsupported` — a declared capability gap, not a conformance failure.
+ * The suite ships the same vectors in both encodings, so honour the refusal
+ * here: probe with the first vector, switch encodings if the engine declines,
+ * and fail the engine only if it refuses BOTH orderings. `--vectors` skips
+ * negotiation: an explicit file is an instruction, not an opening bid.
+ */
+async function selectVectors() {
+  if (VECTORS_FLAG) return loadVectors(VECTORS_FLAG);
+  const [first, second] = SHIPPED_VECTORS;
+  let chosen = loadVectors(first);
+  if (chosen.vectors.length === 0) return chosen;
+  let probe;
+  try {
+    probe = await post('/v1/move', chosen.vectors[0].request);
+  } catch {
+    return chosen; // unreachable or hanging engines are diagnosed by the real checks
+  }
+  if (!rejectsConvention(probe)) return chosen;
+  const declined = chosen.payload._meta?.decodeConvention;
+  chosen = loadVectors(second);
+  let reprobe;
+  try {
+    reprobe = await post('/v1/move', chosen.vectors[0].request);
+  } catch {
+    return chosen;
+  }
+  if (rejectsConvention(reprobe)) {
+    record(
+      'engine reads at least one shipped id ordering',
+      false,
+      `refused both '${declined}' and '${chosen.payload._meta?.decodeConvention}' ids as unsupported (SPEC §3)`,
+    );
+    return { ...chosen, unusable: true };
+  }
+  console.log(
+    `  engine declares '${declined}' ids unsupported — using '${chosen.payload._meta?.decodeConvention}' vectors (SPEC §3)`,
+  );
+  return chosen;
+}
 
 /* ------------------------------------------------------------------ checks */
 
@@ -342,19 +402,28 @@ async function checkCube(sample) {
 
 /* -------------------------------------------------------------------- main */
 
-const payload = JSON.parse(readFileSync(VECTORS, 'utf8'));
-const vectors = payload.vectors ?? [];
 console.log(`engine-conformance -> ${base}`);
-console.log(`  ${vectors.length} vectors from ${VECTORS} (schema ${payload._meta?.schemaVersion})\n`);
 
 const reachable = await checkHealth();
 if (!reachable) {
   console.error('\nengine is not reachable; aborting.');
   process.exit(1);
 }
-const { legalityChecked, evaluationsChecked } = await checkVectors(vectors);
-await checkErrors(vectors[0]?.request ?? {});
-await checkCube(vectors[0]?.request ?? {});
+
+const selected = await selectVectors();
+const vectors = selected.vectors;
+console.log(
+  `  ${vectors.length} vectors from ${selected.path}` +
+    ` (schema ${selected.payload._meta?.schemaVersion}, ${selected.payload._meta?.decodeConvention} ids)\n`,
+);
+
+let legalityChecked = 0;
+let evaluationsChecked = 0;
+if (!selected.unusable) {
+  ({ legalityChecked, evaluationsChecked } = await checkVectors(vectors));
+  await checkErrors(vectors[0]?.request ?? {});
+  await checkCube(vectors[0]?.request ?? {});
+}
 
 const failed = results.filter((r) => !r.ok && !r.skipped);
 const skipped = results.filter((r) => r.skipped);

@@ -61,6 +61,14 @@ test('a conformant engine passes', async () => {
   });
 });
 
+test('an engine that reads only one id ordering negotiates and passes', async () => {
+  await withMock('on-roll-only', async (port) => {
+    const { code, out } = await runHarness(port);
+    assert.equal(code, 0, `expected PASS after encoding negotiation, got exit ${code}:\n${out}`);
+    assert.match(out, /using 'on-roll-first' vectors/);
+  });
+});
+
 // Each of these must FAIL. If one starts passing, that check has rotted.
 const BREAKS = [
   ['illegal-move', /not among .* legal results/],
@@ -68,6 +76,7 @@ const BREAKS = [
   ['no-error-shape', /no ErrorResponse body/],
   ['accepts-garbage', /answered HTTP 200 instead of rejecting/],
   ['bad-version', /protocolVersion/],
+  ['no-convention', /refused both/],
 ];
 
 for (const [mode, pattern] of BREAKS) {

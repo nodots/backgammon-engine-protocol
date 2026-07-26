@@ -20,6 +20,9 @@
  *   accepts-garbage  answers 200 to a malformed positionId instead of rejecting
  *   hang             never responds (tests the timeout path)
  *   bad-version      reports protocolVersion "2"
+ *   on-roll-only     reads only on-roll-first ids — a LEGITIMATE engine per
+ *                    SPEC §3; proves the harness negotiates encodings
+ *   no-convention    refuses BOTH id orderings as unsupported
  */
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -35,7 +38,10 @@ const flag = (n, d) => {
 const BREAK = flag('break', 'none');
 const PORT = Number(flag('port', 0));
 
-const payload = JSON.parse(readFileSync(join(HERE, '..', 'conformance', 'vectors.json'), 'utf8'));
+// The on-roll-only variant serves the encoding it claims to read, since the
+// harness switches to those vectors after negotiating.
+const VECTOR_FILE = BREAK === 'on-roll-only' ? 'vectors-on-roll-first.json' : 'vectors.json';
+const payload = JSON.parse(readFileSync(join(HERE, '..', 'conformance', VECTOR_FILE), 'utf8'));
 const byId = new Map(payload.vectors.map((v) => [v.request.positionId + '|' + v.request.dice.join(','), v]));
 
 const okEvaluation = {
@@ -82,6 +88,20 @@ const server = createServer((req, res) => {
         return;
       }
       return err(res, 400, 'invalid_request', 'body is not valid JSON');
+    }
+
+    // A single-ordering engine refuses the other ordering BEFORE any other
+    // validation (matching the real gnubg adapter), so error probes carrying
+    // the wrong ordering also come back `unsupported`.
+    const convention = parsed?.positionIdConvention ?? 'opponent-first';
+    if (BREAK === 'no-convention' || (BREAK === 'on-roll-only' && convention !== 'on-roll-first')) {
+      return err(
+        res,
+        501,
+        'unsupported',
+        `unsupported positionIdConvention "${convention}"`,
+        'positionIdConvention',
+      );
     }
 
     // Dice are required for /v1/move and OMITTED for cube/resign requests

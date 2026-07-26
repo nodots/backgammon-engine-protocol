@@ -15,6 +15,23 @@ See SPEC.md §7 for the full policy.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.3] — 2026-07-26
+
+### Fixed
+
+- **The conformance CLI failed engines for a capability gap the SPEC declares
+  conformant.** SPEC §3 lets an engine read only one position-id ordering and
+  refuse the other with `unsupported`, and the suite ships the same vectors in
+  both encodings — but the CLI always ran the opponent-first file, so a
+  single-ordering engine (the real gnubg adapter) failed every vector with 501
+  and its error probes reported `unsupported` where `invalid_request` was
+  expected. The CLI now **negotiates the encoding**: it probes with the first
+  vector, switches to the sibling encoding when the engine declines the
+  ordering, and fails the engine only if it refuses both. An explicit
+  `--vectors` path still skips negotiation. The mock-engine gained an
+  `on-roll-only` variant (must pass, via negotiation) and a `no-convention`
+  variant (must fail), so both directions are pinned by tests.
+
 ## [0.2.2] — 2026-07-26
 
 ### Fixed

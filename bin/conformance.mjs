@@ -91,13 +91,46 @@ async function get(path) {
   }
 }
 
-/** Order-independent play key. Must match tools/genConformanceVectors.mjs. */
-function playKey(moves) {
+/**
+ * Apply a vendor's steps to a vector's starting board — pure arithmetic, no
+ * move generation. Legality is judged by RESULTING BOARD (schema 2): the same
+ * physical play can be decomposed 5-then-1 or 1-then-5, so step keys must not
+ * be compared. Hits are DERIVED (landing on exactly one opposing checker sends
+ * it to the opponent bar) rather than trusting the vendor's isHit flag.
+ * Returns null only for structurally unusable steps; an illegal play simply
+ * produces a board whose key matches nothing.
+ */
+function applySteps(board, moves) {
   if (!Array.isArray(moves)) return null;
-  return moves
-    .map((m) => `${m?.from}/${m?.to}`)
-    .sort()
-    .join(',');
+  const b = {
+    points: board.points.slice(),
+    barOnRoll: board.barOnRoll,
+    barOpponent: board.barOpponent,
+    offOnRoll: board.offOnRoll,
+    offOpponent: board.offOpponent,
+  };
+  for (const m of moves) {
+    const from = m?.from;
+    const to = m?.to;
+    if (!Number.isInteger(from) || !Number.isInteger(to)) return null;
+    if (from === 0) b.barOnRoll -= 1;
+    else if (from >= 1 && from <= 24) b.points[from - 1] -= 1;
+    else return null;
+    if (to === 0) b.offOnRoll += 1;
+    else if (to >= 1 && to <= 24) {
+      if (b.points[to - 1] === -1) {
+        b.points[to - 1] = 0;
+        b.barOpponent += 1;
+      }
+      b.points[to - 1] += 1;
+    } else return null;
+  }
+  return b;
+}
+
+/** Canonical board key; must match the generator's boardKey exactly. */
+function keyOfBoard(b) {
+  return `${b.points.join(',')}|bar:${b.barOnRoll},${b.barOpponent}|off:${b.offOnRoll},${b.offOpponent}`;
 }
 
 /**
@@ -182,17 +215,24 @@ async function checkVectors(vectors) {
       record(`${v.id} (${v.category}) responds 200`, false, `HTTP ${r.status}: ${r.text.slice(0, 120)}`);
       continue;
     }
-    const key = playKey(r.json.moves);
-    if (key === null) {
+    if (!Array.isArray(r.json.moves)) {
       record(`${v.id} (${v.category}) returns a moves array`, false, `moves=${JSON.stringify(r.json.moves)}`);
       continue;
     }
-    const legal = v.legalPlays.includes(key);
+    // Empty moves means "no legal play" (a dance). Applying zero steps yields
+    // the unchanged board, whose key is a dance vector's only legal result --
+    // so the same membership check covers both cases with no special-casing.
+    const after = applySteps(v.board, r.json.moves);
+    const legal = after !== null && v.legalResults.includes(keyOfBoard(after));
     legalityChecked++;
     record(
       `${v.id} (${v.category}) play is legal`,
       legal,
-      legal ? '' : `returned "${key}" which is not among ${v.legalPlayCount} legal plays`,
+      legal
+        ? ''
+        : `resulting board not among ${v.legalResultCount} legal results (moves=${JSON.stringify(
+            (r.json.moves ?? []).map((m) => `${m?.from}/${m?.to}`),
+          )})`,
     );
 
     // Optional per SPEC §5 — only checked when the engine chooses to disclose.
@@ -209,8 +249,15 @@ async function checkVectors(vectors) {
           problems.join('; '),
         );
       }
-      if (Array.isArray(c?.moves) && !v.legalPlays.includes(playKey(c.moves))) {
-        record(`${v.id} candidate[${i}] is legal`, false, `"${playKey(c.moves)}" not legal`);
+      if (Array.isArray(c?.moves)) {
+        const cAfter = applySteps(v.board, c.moves);
+        if (cAfter === null || !v.legalResults.includes(keyOfBoard(cAfter))) {
+          record(
+            `${v.id} candidate[${i}] is legal`,
+            false,
+            `resulting board not legal (${(c.moves ?? []).map((m) => `${m?.from}/${m?.to}`).join(',')})`,
+          );
+        }
       }
     }
   }

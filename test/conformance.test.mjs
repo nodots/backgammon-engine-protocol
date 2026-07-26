@@ -63,7 +63,7 @@ test('a conformant engine passes', async () => {
 
 // Each of these must FAIL. If one starts passing, that check has rotted.
 const BREAKS = [
-  ['illegal-move', /not among .* legal plays/],
+  ['illegal-move', /not among .* legal results/],
   ['bad-evaluation', /winBackgammon .* > winGammon/],
   ['no-error-shape', /no ErrorResponse body/],
   ['accepts-garbage', /answered HTTP 200 instead of rejecting/],

@@ -15,6 +15,38 @@ See SPEC.md §7 for the full policy.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.2] — 2026-07-26
+
+### Fixed
+
+- **The conformance suite falsely failed conformant engines — including real
+  GNU Backgammon.** Three defects, found the day a genuinely foreign engine
+  first ran against the suite:
+  1. Legality compared step-multiset keys, which breaks on compound moves: the
+     same physical play arrives as `7/2,2/1` (5 then 1) or `7/6,6/1` (1 then
+     5). Legality is now judged by **resulting board** — vectors carry the
+     starting board and every legal resulting board's canonical key; the
+     harness applies the returned steps with pure arithmetic (hits derived,
+     not trusted) and membership-checks the outcome. Still dependency-free.
+  2. Bar-position vectors were generated from reference ids that turn out to
+     be corrupt for every position with a checker on the bar. Bar-entry,
+     forced-dance and late-bearoff vectors are now generated from walked games
+     with validated ids — those cases enter the suite for the first time.
+  3. A forced dance was modelled as zero legal plays; the correct shape is one
+     play with empty steps. Now derived correctly, and dances need no special
+     case: applying zero steps yields the unchanged board, which is a dance
+     vector's only legal result.
+- Vector schema bumped to 2 (`_meta.schemaVersion`). Schema-1 vectors are
+  replaced; any consumer reading `legalPlays` should read `legalResults` and
+  apply-and-compare instead.
+
+### Validation
+
+- nodots-neural: 201 checks, 0 failed, both conventions.
+- **GNU Backgammon (via the GPL adapter): 198 checks, 0 failed** — the suite
+  now passes the strongest independently-implemented engine available, which
+  is the point of having one.
+
 ## [0.2.1] — 2026-07-25
 
 ### Fixed

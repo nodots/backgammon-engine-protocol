@@ -38,23 +38,6 @@ const PORT = Number(flag('port', 0));
 const payload = JSON.parse(readFileSync(join(HERE, '..', 'conformance', 'vectors.json'), 'utf8'));
 const byId = new Map(payload.vectors.map((v) => [v.request.positionId + '|' + v.request.dice.join(','), v]));
 
-/** Parse a play key like "8/5,6/5" back into MoveStep-ish objects. */
-function keyToMoves(key) {
-  if (!key) return [];
-  return key.split(',').map((s) => {
-    const [from, to] = s.split('/').map(Number);
-    return {
-      from,
-      to,
-      moveKind: from === 0 ? 'reenter' : to === 0 ? 'bear-off' : 'point-to-point',
-      isHit: false,
-      player: 'white',
-      fromContainer: from === 0 ? 'bar' : 'point',
-      toContainer: to === 0 ? 'off' : 'point',
-    };
-  });
-}
-
 const okEvaluation = {
   win: 0.55,
   winGammon: 0.15,
@@ -133,16 +116,24 @@ const server = createServer((req, res) => {
     const url = req.url ?? '';
     if (url === '/v1/move') {
       const v = byId.get(parsed.positionId + '|' + (parsed.dice ?? []).join(','));
-      const legal = v ? v.legalPlays[0] : '';
-      const key = BREAK === 'illegal-move' ? '24/1,24/1' : legal;
+      // Schema 2: vectors carry one canonical legal play as full MoveStep
+      // objects. The illegal variant plays from a point the mover cannot hold.
+      const sample = v ? v.samplePlay : [];
+      const moves =
+        BREAK === 'illegal-move'
+          ? [
+              { from: 24, to: 1, moveKind: 'point-to-point', isHit: false, player: 'white', fromContainer: 'point', toContainer: 'point' },
+              { from: 24, to: 1, moveKind: 'point-to-point', isHit: false, player: 'white', fromContainer: 'point', toContainer: 'point' },
+            ]
+          : sample;
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(
         JSON.stringify({
-          moves: keyToMoves(key),
+          moves,
           equity: 0.1,
           candidates: [
             {
-              moves: keyToMoves(key),
+              moves,
               evaluation: BREAK === 'bad-evaluation' ? badEvaluation : okEvaluation,
               equity: 0.1,
               rank: 1,
